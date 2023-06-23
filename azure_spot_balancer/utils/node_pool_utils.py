@@ -169,3 +169,93 @@ class AzureComputeManager:
                 return {"cpu": vm["numberOfCores"], "memory": vm["memoryInMB"]}
 
         return None
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
+    def suggest_node_pool(
+        self,
+        cpu_required: int,
+        memory_required: int,
+        location: str,
+        vm_sizes: List[str],
+    ) -> Optional[Dict[str, Union[str, int]]]:
+        """
+        Suggest a VM size and count based on the CPU and memory requirements, plus a buffer.
+
+        Args:
+            cpu_required (int): The number of CPU cores required.
+            memory_required (int): The amount of memory required in MB.
+            location (str): The location to retrieve VM resources from.
+            vm_sizes (List[str]): A list of VM sizes.
+
+        Returns:
+            Optional[Dict[str, Union[str, int]]]: The suggested VM size and count if found, otherwise None.
+        """
+        # Add a 10% buffer to the requirements
+        cpu_required = int(cpu_required * 1.1)
+        memory_required = int(memory_required * 1.1)
+
+        vm_details = [
+            self.get_vm_resources(node_sku, location) for node_sku in vm_sizes
+        ]
+
+        # Prepare a list of dictionaries with VM size names and their details
+        node_pools = [
+            {"name": size, "cpu": detail["cpu"], "memory": detail["memory"]}
+            for size, detail in zip(vm_sizes, vm_details)
+            if detail
+        ]
+
+        # Check if any node pool can accommodate the requirements
+        suitable_pools = [
+            pool
+            for pool in node_pools
+            if pool["cpu"] >= cpu_required and pool["memory"] >= memory_required
+        ]
+
+        # If there are suitable pools, find the one with minimum total resources exceeding the requirement
+        if suitable_pools:
+            best_pool = min(
+                suitable_pools,
+                key=lambda pool: (pool["cpu"] - cpu_required)
+                + (pool["memory"] - memory_required),
+            )
+            return {"name": best_pool["name"], "count": 1}
+
+        # If no suitable pool found, calculate the minimum node count required for each pool
+        pool_counts = [
+            {
+                "name": pool["name"],
+                "count": max(
+                    cpu_required // pool["cpu"], memory_required // pool["memory"]
+                )
+                + 1,
+            }
+            for pool in node_pools
+        ]
+
+        # Prefer fewer larger machines: if two pools require the same total resources, choose the one with the smaller count
+        # If counts are also the same, choose the one with the larger CPU and memory
+        best_pool = min(
+            pool_counts,
+            key=lambda pool: (
+                pool["count"],
+                -node_pools[
+                    next(
+                        index
+                        for (index, d) in enumerate(node_pools)
+                        if d["name"] == pool["name"]
+                    )
+                ]["cpu"],
+                -node_pools[
+                    next(
+                        index
+                        for (index, d) in enumerate(node_pools)
+                        if d["name"] == pool["name"]
+                    )
+                ]["memory"],
+            ),
+        )
+
+        return best_pool
