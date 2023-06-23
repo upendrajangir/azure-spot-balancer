@@ -3,7 +3,7 @@ import os
 import logging
 from functools import wraps
 from time import time
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Dict, Any
 
 # Third party imports
 from azure.core.exceptions import AzureError, ResourceNotFoundError, HttpResponseError
@@ -88,7 +88,7 @@ class NodePoolManager:
         return wrapped_func
 
     @staticmethod
-    def handle_exceptions(function):
+    def exception_handler(function):
         @wraps(function)
         def exception_wrapper(*args, **kwargs):
             try:
@@ -118,7 +118,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def _create_azure_client(self) -> None:
         """
         Create Azure ContainerService client using service principal credentials.
@@ -139,7 +139,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def check_cluster_status(self, cluster_name: str) -> bool:
         """
         Check the status of a specific Kubernetes cluster.
@@ -176,7 +176,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def list_node_pools(self) -> List[AgentPool]:
         """
         List all node pools in the Kubernetes cluster.
@@ -196,7 +196,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def get_node_pool(self, node_pool_name: str) -> AgentPool:
         """
         Get a specific node pool in the Kubernetes cluster.
@@ -213,11 +213,46 @@ class NodePoolManager:
 
         logger.info(f"Successfully retrieved node pool: {node_pool_name}")
 
-        return node_pool
+        return
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
+    def retrieve_node_pool_node_size(
+        self, node_pool_name: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Retrieve the size (CPU and memory capacity) of nodes in a specific node pool.
+
+        Args:
+            node_pool_name (str): The name of the node pool.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: Dictionary mapping node names to their CPU and memory capacity.
+        """
+        node_pool = self.client.agent_pools.get(
+            self.resource_group, self.cluster_name, node_pool_name
+        )
+        node_sizes = {}
+        vm_size = node_pool.vm_size
+        cpu_cores = vm_size[8:-1]
+        memory_gb = vm_size[-1]
+
+        print(f"CPU Cores: {cpu_cores}")
+        print(f"Memory (GB): {memory_gb}")
+
+        for node in node_pool.list_nodes():
+            node_sizes[node.name] = node.get_capacity()
+
+        logger.info(
+            f"Successfully retrieved node sizes for node pool: {node_pool_name}"
+        )
+
+        return node_sizes
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
     def update_node_pool_autoscaling(
         self,
         node_pool_name: str,
@@ -257,7 +292,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def update_node_pool_manual_scaling(
         self, node_pool_name: str, count: int, enable_auto_scaling: bool = False
     ) -> bool:
@@ -291,7 +326,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def scale_node_pool(self, node_pool_name: str, desired_node_count: int) -> bool:
         """
         Scale the node pool to a specific node count.
@@ -315,7 +350,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def enable_node_pool_autoscaling(
         self, node_pool_name: str, min_nodes: int, max_nodes: int
     ) -> bool:
@@ -340,10 +375,9 @@ class NodePoolManager:
             )
         return autoscaling_enabled
 
-    # TODO: Star refactoring from here
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def disable_node_pool_autoscaling(self, node_pool_name: str) -> bool:
         """
         Disable autoscaling for the specified node pool.
@@ -378,7 +412,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def update_node_pool_autoscaling(
         self, node_pool_name: str, min_count: int, max_count: int
     ) -> bool:
@@ -416,7 +450,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def increase_node_pool_count(self, node_pool_name: str) -> bool:
         """
         Increment the node count for the specified node pool.
@@ -451,7 +485,7 @@ class NodePoolManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def decrease_node_pool_count(self, node_pool_name: str) -> bool:
         """
         Decrease the node count for the specified node pool.
@@ -487,3 +521,26 @@ class NodePoolManager:
                 f"Successfully decreased node count for node pool: {node_pool_name}. New count: {updated_node_count}."
             )
         return manual_scaling_set
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
+    def retrive_vm_size(self, vm_size: str) -> str:
+        """
+        Retrive the vm size for the specified node pool.
+
+        Args:
+            vm_size (str): The name of the vm size.
+
+        Returns:
+            str: The vm size.
+        """
+        vm_size = self.client.compute_client.virtual_machine_sizes.get(
+            self.resource_group, vm_size
+        ).name
+        return vm_size
+
+
+if __name__ == "__main__":
+    manager = NodePoolManager()
+    manager.retrieve_node_pool_node_size("systempool01")

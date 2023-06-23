@@ -57,7 +57,7 @@ class NodeManager:
         return time_wrapper
 
     @staticmethod
-    def handle_exceptions(function):
+    def exception_handler(function):
         @wraps(function)
         def exception_wrapper(*args, **kwargs):
             try:
@@ -106,7 +106,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_node_status(self, node_name: str) -> Optional[str]:
         """
         Retrieve the status of a node.
@@ -130,7 +130,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def is_node_schedulable(self, node_name: str) -> Optional[bool]:
         """
         Check if a node is schedulable.
@@ -151,7 +151,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_all_nodes(self) -> Optional[List[Any]]:
         """
         Retrieve all nodes in the Kubernetes cluster.
@@ -168,7 +168,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_nodes_in_pool(self, node_pool_name: str) -> Optional[List[Any]]:
         """
         Retrieve all nodes in a specific node pool.
@@ -199,7 +199,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def get_node(self, node_name: str) -> Optional[Any]:
         """
         Retrieve information about a specific node.
@@ -221,7 +221,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def remove_node(self, node_name: str) -> bool:
         """
         Remove a node from the Kubernetes cluster.
@@ -240,7 +240,32 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
+    def retrieve_node_resource_quota(self, node_name: str) -> Optional[Dict[str, int]]:
+        """
+        Retrieve the resource quota for a specific node.
+
+        Args:
+            node_name (str): The name of the node.
+
+        Returns:
+            Optional[Dict[str, int]]: The resource quota for the node if found, otherwise None.
+        """
+        node_info = self.get_node(node_name)
+        node_resource_quota = node_info.status.allocatable
+
+        if node_resource_quota:
+            logger.info(
+                f"Successfully retrieved resource quota for node '{node_name}': {node_resource_quota}"
+            )
+        else:
+            logger.warning(f"No resource quota found for node '{node_name}'.")
+
+        return node_resource_quota
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
     def disable_node_scheduling(self, node_name: str) -> Optional[bool]:
         """
         Disable scheduling for a specific node.
@@ -257,7 +282,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def enable_node_scheduling(self, node_name: str) -> Optional[bool]:
         """
         Enable scheduling for a specific node.
@@ -274,7 +299,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def apply_taint_to_node(
         self, node_name: str, taints: dict, taint_effect: str
     ) -> Optional[bool]:
@@ -309,7 +334,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def remove_taint_from_node(self, node_name: str, taint_key: str) -> bool:
         """
         Remove a specific taint from a node.
@@ -334,7 +359,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def apply_node_label(self, node_name: str, labels: dict) -> Optional[bool]:
         """
         Apply a label to a node.
@@ -356,7 +381,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def remove_node_label(self, node_name: str, label_key: str) -> bool:
         """
         Remove a specific label from the specified node.
@@ -392,7 +417,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def list_all_pods_in_namespace(
         self, namespace: str = "default"
     ) -> List[client.V1Pod]:
@@ -411,7 +436,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def list_pods_in_specific_node(self, node_name: str) -> List[client.V1Pod]:
         """
         Retrieve all pods running on a specific node.
@@ -430,7 +455,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def list_pods_in_specific_node_pool(
         self, node_pool_name: str
     ) -> List[client.V1Pod]:
@@ -451,7 +476,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def list_all_pods_in_cluster(self) -> List[client.V1Pod]:
         """
         Retrieve all pods in the Kubernetes cluster.
@@ -465,7 +490,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_pod(
         self, pod_name: str, pod_namespace: str = "default"
     ) -> client.V1Pod:
@@ -487,7 +512,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_deployment(
         self, deployment_name: str, deployment_namespace: str = "default"
     ) -> client.V1Deployment:
@@ -511,7 +536,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_pod_resource_quota(
         self, pod_name: str, pod_namespace: str = "default"
     ) -> List[dict]:
@@ -535,7 +560,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_node_resource_quota(self, node_name: str) -> List[dict]:
         """
         Retrieve the resource quota for a specific node in the Kubernetes cluster.
@@ -554,7 +579,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def retrieve_deployment_pdb(
         self, deployment_name: str, deployment_namespace: str = "default"
     ) -> client.V1PodDisruptionBudget:
@@ -578,7 +603,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def update_deployment_pdb(
         self,
         deployment_name: str,
@@ -613,7 +638,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def evict_all_pods_from_node(
         self, node_name: str, termination_period: int = 30
     ) -> bool:
@@ -645,7 +670,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def evict_all_pods_from_namespace(
         self, namespace: str = "default", termination_period: int = 30
     ) -> bool:
@@ -680,7 +705,7 @@ class NodeManager:
 
     @measure_execution_time
     @retry_decorator
-    @handle_exceptions
+    @exception_handler
     def evict_pod(
         self,
         pod_name: str,
