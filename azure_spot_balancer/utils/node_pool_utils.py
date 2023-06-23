@@ -125,3 +125,47 @@ class AzureComputeManager:
         )
         self.client = ComputeManagementClient(self.credentials, self.subscription_id)
         logger.info("Azure compute client successfully created.")
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
+    def get_available_vm_sizes(self, location: str = "eastus") -> List[str]:
+        """
+        Retrieve a list of available VM sizes in the specified location.
+
+        Args:
+            location (str): The location to retrieve VM sizes from.
+
+        Returns:
+            List[str]: A list of available VM sizes.
+        """
+        vm_sizes = [
+            vm.serialize()
+            for vm in self.client.virtual_machine_sizes.list(location=location)
+        ]
+        logger.info("Retrieved a list of available VM sizes.")
+        return vm_sizes
+
+    @measure_execution_time
+    @retry_decorator
+    @exception_handler
+    def get_vm_resources(
+        self, node_sku: str, location: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve the CPU and memory configuration for a specific VM size (node SKU).
+
+        Args:
+            node_sku (str): The SKU of the node.
+            location (str): The location to retrieve VM resources from.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the CPU and memory configuration of the VM if found, otherwise None.
+        """
+        vm_sizes = self.get_available_vm_sizes(location=location)
+
+        for vm in vm_sizes:
+            if vm["name"] == node_sku:
+                return {"cpu": vm["numberOfCores"], "memory": vm["memoryInMB"]}
+
+        return None
