@@ -16,6 +16,9 @@ ENV/
 *.log
 log/
 
+# Database
+*.db
+
 # Other
 .DS_Store
 .idea/
